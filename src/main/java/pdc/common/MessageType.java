@@ -1,0 +1,16 @@
+package pdc.common;
+
+public enum MessageType {
+    REGISTER,
+    REGISTER_ACK,
+    TASK_REQUEST,
+    TASK_ASSIGN,
+    TASK_BATCH_ASSIGN,
+    DATA_REQUEST,
+    DATA_RESPONSE,
+    RESULT_RETURN,
+    NO_TASK_AVAILABLE,
+    SHUTDOWN,
+    ERROR,
+    HEARTBEAT
+}
