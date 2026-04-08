@@ -61,7 +61,7 @@ public class ResultAggregator {
     }
 
     private void mergeWordCounts(Map<String, Integer> partialCounts) {
-        partialCounts.forEach((word, count) -> wordCountAggregate.merge(word, count, Integer::sum));
+        partialCounts.forEach((word, count) -> wordCountAggregate.merge(word, count, Integer::sum));        
     }
 
     private void mergeInvertedIndex(Map<String, Map<String, List<Integer>>> partialIndex) {

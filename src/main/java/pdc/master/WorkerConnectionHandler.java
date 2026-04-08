@@ -10,8 +10,10 @@ import pdc.common.TaskDataResponse;
 import pdc.common.TaskResult;
 import pdc.common.WorkerRegistration;
 
+import java.io.BufferedWriter;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.net.Socket;
 import java.util.List;
@@ -106,6 +108,12 @@ public class WorkerConnectionHandler implements Runnable {
             Object finalResult = runtime.aggregator().aggregate(result.getMode());
             System.out.println("Final aggregated result cardinality=" + resultCardinality(finalResult, result.getMode()));
             runtime.writeParallelCompletionIfNeeded(workerRegistry.workerCount());
+            try (BufferedWriter writer = new BufferedWriter(new FileWriter("parallel-output.txt"))) {
+                writer.write(String.valueOf(finalResult));  // safe even if result is null
+            }
+            catch (IOException e) {
+                System.err.println("Failed to write parallel output: " + e.getMessage());
+            }
         }
         return new MessageEnvelope(MessageType.RESULT_RETURN, UUID.randomUUID().toString(), "ACK");
     }

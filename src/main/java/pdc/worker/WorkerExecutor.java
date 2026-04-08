@@ -6,12 +6,11 @@ import pdc.common.TaskBatchAssignment;
 import pdc.compute.ComputeKernel;
 
 import java.io.IOException;
+import java.io.BufferedReader;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -19,13 +18,11 @@ public class WorkerExecutor {
     private final String workerId;
     private final int threadCount;
     private final ExecutorService computePool;
-    private final Map<String, List<String>> fileLineCache;
 
     public WorkerExecutor(String workerId, int threadCount) {
         this.workerId = workerId;
         this.threadCount = threadCount;
         this.computePool = Executors.newFixedThreadPool(threadCount);
-        this.fileLineCache = new ConcurrentHashMap<>();
 
         Runtime.getRuntime().addShutdownHook(new Thread(() -> computePool.shutdownNow()));
     }
@@ -54,20 +51,25 @@ public class WorkerExecutor {
     }
 
     private List<String> readLinesForTask(TaskDescriptor descriptor) {
-        List<String> allLines = fileLineCache.computeIfAbsent(descriptor.getFilePath(), this::readAllLines);
         int start = Math.max(0, descriptor.getStartLine());
-        int end = Math.min(allLines.size() - 1, Math.max(start, descriptor.getEndLine()));
-        if (allLines.isEmpty() || start > end) {
-            return List.of();
-        }
-        return new ArrayList<>(allLines.subList(start, end + 1));
-    }
+        int end = Math.max(start, descriptor.getEndLine());
+        List<String> selected = new ArrayList<>(Math.max(1, end - start + 1));
 
-    private List<String> readAllLines(String filePath) {
-        try {
-            return Files.readAllLines(Path.of(filePath));
+        try (BufferedReader reader = Files.newBufferedReader(Path.of(descriptor.getFilePath()))) {
+            String line;
+            int lineNumber = 0;
+            while ((line = reader.readLine()) != null) {
+                if (lineNumber > end) {
+                    break;
+                }
+                if (lineNumber >= start) {
+                    selected.add(line);
+                }
+                lineNumber++;
+            }
+            return selected;
         } catch (IOException e) {
-            throw new IllegalStateException("Failed to read file " + filePath, e);
+            throw new IllegalStateException("Failed to read file range for task " + descriptor.getTaskId(), e);
         }
     }
 

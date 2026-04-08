@@ -1,5 +1,8 @@
 package pdc;
+
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.util.Scanner;
 
 public class MultiTerminalLauncher {
@@ -10,41 +13,68 @@ public class MultiTerminalLauncher {
         System.out.print("Enter number of processes: ");
         int n = scanner.nextInt();
 
-        String command = "mvn -q exec:java -Dexec.mainClass=pdc.AppWorker";
-        String command1 = "mvn -q exec:java -Dexec.mainClass=pdc.AppMaster";
+        String workerCommand = "mvn -q exec:java -Dexec.mainClass=pdc.AppWorker";
+        String masterCommand = "mvn -q exec:java -Dexec.mainClass=pdc.AppMaster";
 
-         // Start the master process first
-        try {            ProcessBuilder pbMaster = new ProcessBuilder(
-                    "gnome-terminal",
-                    "--",
+        try {
+            // 🔹 Start master WITHOUT gnome-terminal so we can read output
+            ProcessBuilder pbMaster = new ProcessBuilder(
                     "bash",
                     "-c",
-                    command1 + "; exec bash"
+                    masterCommand
             );
-            pbMaster.start();
-            Thread.sleep(500); // Small delay to ensure master starts before workers
-        } catch (IOException | InterruptedException e) {
-            e.printStackTrace();
-        }
 
-        for (int i = 0; i < n; i++) {
-            try {
-                ProcessBuilder pb = new ProcessBuilder(
+            pbMaster.redirectErrorStream(true);
+            Process masterProcess = pbMaster.start();
+
+            BufferedReader reader = new BufferedReader(
+                    new InputStreamReader(masterProcess.getInputStream())
+            );
+
+            String line;
+            boolean ready = false;
+
+            System.out.println("Waiting for master to become ready...");
+
+            while ((line = reader.readLine()) != null) {
+                System.out.println("[MASTER] " + line);
+
+                if (line.contains("initialized")) {
+                    ready = true;
+                    break;
+                }
+            }
+
+            if (!ready) {
+                System.out.println("Master did not signal readiness. Exiting...");
+                scanner.close();
+                return;
+            }
+
+            System.out.println("Master is ready. Launching workers...");
+
+            // Launch worker processes in separate terminals
+            for (int i = 0; i < n; i++) {
+                ProcessBuilder pbWorker = new ProcessBuilder(
                         "gnome-terminal",
                         "--",
                         "bash",
                         "-c",
-                        command + "; exec bash"
+                        workerCommand + "; exec bash"
                 );
 
-                pb.start();
+                pbWorker.start();
 
-                // Small delay to avoid overwhelming system
-                Thread.sleep(30);
-
-            } catch (IOException | InterruptedException e) {
-                e.printStackTrace();
+                // Small delay to avoid system overload
+                Thread.sleep(50);
             }
+
+            while ((line = reader.readLine()) != null) {
+                System.out.println("[MASTER] " + line);
+            }
+
+        } catch (IOException | InterruptedException e) {
+            e.printStackTrace();
         }
 
         scanner.close();

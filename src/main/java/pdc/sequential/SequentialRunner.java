@@ -7,6 +7,8 @@ import pdc.compute.ComputeKernel;
 import pdc.master.ResultAggregator;
 import pdc.master.TaskPartitioner;
 
+import java.io.BufferedWriter;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -34,7 +36,15 @@ public class SequentialRunner {
         } finally {
             executor.shutdownNow();
         }
-        return aggregator.aggregate(mode);
+        Object result  = aggregator.aggregate(mode);
+        // Write result to sequential-output.txt
+        try (BufferedWriter writer = new BufferedWriter(new FileWriter("sequential-output.txt"))) {
+            writer.write(String.valueOf(result));  // safe even if result is null
+        }
+        catch (IOException e) {
+            System.err.println("Failed to write sequential output: " + e.getMessage());
+        }
+        return result;
     }
 
     private List<String> readLinesForTask(TaskDescriptor task) {
