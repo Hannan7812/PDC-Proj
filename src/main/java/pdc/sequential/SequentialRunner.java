@@ -13,12 +13,29 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public class SequentialRunner {
 
-    public Object run(Path dataPath, int chunkLines, ComputeMode mode) {
+    public SequentialResult run(Path dataPath, int chunkLines) {
+        Map<String, Integer> wordCount = runSinglePass(dataPath, chunkLines, ComputeMode.WORD_COUNT);
+        Map<String, Map<String, List<Integer>>> invertedIndex = runSinglePass(dataPath, chunkLines, ComputeMode.INVERTED_INDEX);
+
+        try (BufferedWriter wcWriter = new BufferedWriter(new FileWriter("sequential-wor-count.txt"));
+             BufferedWriter idxWriter = new BufferedWriter(new FileWriter("sequential-inv-index.txt"))) {
+            wcWriter.write(String.valueOf(wordCount));
+            idxWriter.write(String.valueOf(invertedIndex));
+        } catch (IOException e) {
+            System.err.println("Failed to write sequential outputs: " + e.getMessage());
+        }
+
+        return new SequentialResult(wordCount, invertedIndex);
+    }
+
+    @SuppressWarnings("unchecked")
+    private <T> T runSinglePass(Path dataPath, int chunkLines, ComputeMode mode) {
         TaskPartitioner partitioner = new TaskPartitioner();
         List<TaskDescriptor> tasks = partitioner.buildTasks(dataPath, chunkLines, mode);
         ResultAggregator aggregator = new ResultAggregator();
@@ -36,15 +53,10 @@ public class SequentialRunner {
         } finally {
             executor.shutdownNow();
         }
-        Object result  = aggregator.aggregate(mode);
-        // Write result to sequential-output.txt
-        try (BufferedWriter writer = new BufferedWriter(new FileWriter("sequential-output.txt"))) {
-            writer.write(String.valueOf(result));  // safe even if result is null
+        if (mode == ComputeMode.WORD_COUNT) {
+            return (T) aggregator.aggregateWordCount();
         }
-        catch (IOException e) {
-            System.err.println("Failed to write sequential output: " + e.getMessage());
-        }
-        return result;
+        return (T) aggregator.aggregateInvertedIndex();
     }
 
     private List<String> readLinesForTask(TaskDescriptor task) {
@@ -68,5 +80,11 @@ public class SequentialRunner {
         } catch (IOException e) {
             throw new IllegalStateException("Sequential task read failed for " + task.getTaskId(), e);
         }
+    }
+
+    public record SequentialResult(
+            Map<String, Integer> wordCount,
+            Map<String, Map<String, List<Integer>>> invertedIndex
+    ) {
     }
 }

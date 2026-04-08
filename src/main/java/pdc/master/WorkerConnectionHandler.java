@@ -105,11 +105,15 @@ public class WorkerConnectionHandler implements Runnable {
         runtime.scheduler().completeTasks(completedTaskIds);
 
         if (runtime.scheduler().allCompleted()) {
-            Object finalResult = runtime.aggregator().aggregate(result.getMode());
-            System.out.println("Final aggregated result cardinality=" + resultCardinality(finalResult, result.getMode()));
+            Map<String, Integer> finalWordCount = runtime.aggregator().aggregateWordCount();
+            Map<String, Map<String, List<Integer>>> finalInvertedIndex = runtime.aggregator().aggregateInvertedIndex();
+            System.out.println("Final word count cardinality=" + finalWordCount.size());
+            System.out.println("Final inverted index entries=" + invertedIndexEntries(finalInvertedIndex));
             runtime.writeParallelCompletionIfNeeded(workerRegistry.workerCount());
-            try (BufferedWriter writer = new BufferedWriter(new FileWriter("parallel-output.txt"))) {
-                writer.write(String.valueOf(finalResult));  // safe even if result is null
+            try (BufferedWriter wcWriter = new BufferedWriter(new FileWriter("parallel_word_count.txt"));
+                 BufferedWriter idxWriter = new BufferedWriter(new FileWriter("parallel_inv_index.txt"))) {
+                wcWriter.write(String.valueOf(finalWordCount));
+                idxWriter.write(String.valueOf(finalInvertedIndex));
             }
             catch (IOException e) {
                 System.err.println("Failed to write parallel output: " + e.getMessage());
@@ -118,13 +122,8 @@ public class WorkerConnectionHandler implements Runnable {
         return new MessageEnvelope(MessageType.RESULT_RETURN, UUID.randomUUID().toString(), "ACK");
     }
 
-    @SuppressWarnings("unchecked")
-    private long resultCardinality(Object finalResult, pdc.common.ComputeMode mode) {
-        if (mode == pdc.common.ComputeMode.WORD_COUNT) {
-            return ((Map<String, Integer>) finalResult).size();
-        }
+    private long invertedIndexEntries(Map<String, Map<String, List<Integer>>> index) {
         long entries = 0L;
-        Map<String, Map<String, List<Integer>>> index = (Map<String, Map<String, List<Integer>>>) finalResult;
         for (Map<String, List<Integer>> fileMap : index.values()) {
             for (List<Integer> positions : fileMap.values()) {
                 entries += positions.size();

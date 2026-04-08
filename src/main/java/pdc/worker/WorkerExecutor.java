@@ -4,6 +4,7 @@ import pdc.common.TaskDescriptor;
 import pdc.common.TaskResult;
 import pdc.common.TaskBatchAssignment;
 import pdc.compute.ComputeKernel;
+import pdc.common.ComputeMode;
 
 import java.io.IOException;
 import java.io.BufferedReader;
@@ -12,19 +13,30 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 
 public class WorkerExecutor {
     private final String workerId;
     private final int threadCount;
-    private final ExecutorService computePool;
+    private final int wordCountThreads;
+    private final int invertedIndexThreads;
+    private final ExecutorService wordCountPool;
+    private final ExecutorService invertedIndexPool;
 
     public WorkerExecutor(String workerId, int threadCount) {
         this.workerId = workerId;
         this.threadCount = threadCount;
-        this.computePool = Executors.newFixedThreadPool(threadCount);
+        this.wordCountThreads = Math.max(1, threadCount / 2);
+        this.invertedIndexThreads = Math.max(1, threadCount - wordCountThreads);
+        this.wordCountPool = Executors.newFixedThreadPool(wordCountThreads);
+        this.invertedIndexPool = Executors.newFixedThreadPool(invertedIndexThreads);
 
-        Runtime.getRuntime().addShutdownHook(new Thread(() -> computePool.shutdownNow()));
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            wordCountPool.shutdownNow();
+            invertedIndexPool.shutdownNow();
+        }));
     }
 
     public TaskResult execute(TaskDescriptor descriptor) {
@@ -38,16 +50,62 @@ public class WorkerExecutor {
         }
 
         TaskDescriptor merged = mergeContiguousTasks(tasks);
-        ComputeKernel kernel = ComputeKernel.forMode(merged.getMode());
         List<String> lines = readLinesForTask(merged);
         long startedAt = System.currentTimeMillis();
-        TaskResult result = kernel.compute(workerId, merged, lines, computePool, threadCount);
+        TaskResult result = computeBothModes(merged, lines);
         long computeMs = System.currentTimeMillis() - startedAt;
         result.setCompletedTaskIds(tasks.stream().map(TaskDescriptor::getTaskId).toList());
         result.setChunkCount(tasks.size());
         result.setComputeMs(computeMs);
         result.setTaskId(tasks.get(0).getTaskId());
         return result;
+    }
+
+    private TaskResult computeBothModes(TaskDescriptor merged, List<String> lines) {
+        TaskDescriptor wcTask = new TaskDescriptor(
+                merged.getTaskId(),
+                merged.getFilePath(),
+                merged.getStartLine(),
+                merged.getEndLine(),
+                merged.getAttempt(),
+                ComputeMode.WORD_COUNT
+        );
+        TaskDescriptor idxTask = new TaskDescriptor(
+                merged.getTaskId(),
+                merged.getFilePath(),
+                merged.getStartLine(),
+                merged.getEndLine(),
+                merged.getAttempt(),
+                ComputeMode.INVERTED_INDEX
+        );
+
+        ComputeKernel wordCountKernel = ComputeKernel.forMode(ComputeMode.WORD_COUNT);
+        ComputeKernel invertedIndexKernel = ComputeKernel.forMode(ComputeMode.INVERTED_INDEX);
+
+        CompletableFuture<TaskResult> wcFuture = CompletableFuture.supplyAsync(
+                () -> wordCountKernel.compute(workerId, wcTask, lines, wordCountPool, wordCountThreads)
+        );
+        CompletableFuture<TaskResult> idxFuture = CompletableFuture.supplyAsync(
+                () -> invertedIndexKernel.compute(workerId, idxTask, lines, invertedIndexPool, invertedIndexThreads)
+        );
+
+        try {
+            TaskResult wc = wcFuture.get();
+            TaskResult idx = idxFuture.get();
+
+            TaskResult combined = new TaskResult();
+            combined.setTaskId(merged.getTaskId());
+            combined.setWorkerId(workerId);
+            combined.setMode(merged.getMode());
+            combined.setWordCounts(wc.getWordCounts());
+            combined.setInvertedIndex(idx.getInvertedIndex());
+            return combined;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("Dual compute interrupted", e);
+        } catch (ExecutionException e) {
+            throw new IllegalStateException("Dual compute failed", e);
+        }
     }
 
     private List<String> readLinesForTask(TaskDescriptor descriptor) {

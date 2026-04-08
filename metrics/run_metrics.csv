@@ -42,3 +42,7 @@ sequential,WORD_COUNT,true,46346,1,1,1400,1400
 parallel,WORD_COUNT,true,10477,3,2,1400,1400
 sequential,INVERTED_INDEX,true,60730,1,1,1400,1400
 parallel,INVERTED_INDEX,true,14307,3,2,1400,1400
+parallel,BOTH,true,15204,3,2,1400,1400
+sequential,BOTH,true,106493,1,1,1400,1400
+sequential,BOTH,true,25980,1,1,434,434
+parallel,BOTH,true,13441,4,2,434,434

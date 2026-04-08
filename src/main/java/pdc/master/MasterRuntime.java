@@ -57,7 +57,7 @@ public class MasterRuntime {
         if (tasks.isEmpty()) {
             metricsRecorder.writeRunCompletion(
                     "parallel",
-                    computeMode.name(),
+                    "BOTH",
                     true,
                     0,
                     0,
@@ -80,7 +80,7 @@ public class MasterRuntime {
         metricsRecorder.writeTimeline("parallel", "total", elapsedMs);
         metricsRecorder.writeRunCompletion(
                 "parallel",
-                computeMode.name(),
+                "BOTH",
             success,
                 elapsedMs,
                 workerCount,
@@ -88,7 +88,7 @@ public class MasterRuntime {
             totalTasks,
             completedTasks
         );
-        System.out.println("Parallel mode=" + computeMode
+        System.out.println("Parallel mode=BOTH"
             + " success=" + success
             + " elapsedMs=" + elapsedMs
             + " workers=" + workerCount

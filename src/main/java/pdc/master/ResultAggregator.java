@@ -1,6 +1,5 @@
 package pdc.master;
 
-import pdc.common.ComputeMode;
 import pdc.common.TaskResult;
 
 import java.util.ArrayList;
@@ -32,9 +31,10 @@ public class ResultAggregator {
             return;
         }
         recordedTaskIds.addAll(taskIds.stream().filter(id -> id != null && !id.isBlank()).collect(Collectors.toSet()));
-        if (result.getMode() == ComputeMode.INVERTED_INDEX) {
+        if (result.getInvertedIndex() != null && !result.getInvertedIndex().isEmpty()) {
             mergeInvertedIndex(result.getInvertedIndex());
-        } else {
+        }
+        if (result.getWordCounts() != null && !result.getWordCounts().isEmpty()) {
             mergeWordCounts(result.getWordCounts());
         }
     }
@@ -51,13 +51,6 @@ public class ResultAggregator {
             snapshot.put(term, copied);
         });
         return snapshot;
-    }
-
-    public synchronized Object aggregate(ComputeMode mode) {
-        if (mode == ComputeMode.INVERTED_INDEX) {
-            return aggregateInvertedIndex();
-        }
-        return aggregateWordCount();
     }
 
     private void mergeWordCounts(Map<String, Integer> partialCounts) {
