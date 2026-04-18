@@ -15,10 +15,10 @@ import java.util.concurrent.Future;
 public class WordCountKernel implements ComputeKernel {
     @Override
     public TaskResult compute(String workerId,
-                              TaskDescriptor descriptor,
-                              List<String> lines,
-                              ExecutorService executorService,
-                              int threadCount) {
+            TaskDescriptor descriptor,
+            List<String> lines,
+            ExecutorService executorService,
+            int threadCount) {
         TaskResult result = new TaskResult();
         result.setTaskId(descriptor.getTaskId());
         result.setWorkerId(workerId);

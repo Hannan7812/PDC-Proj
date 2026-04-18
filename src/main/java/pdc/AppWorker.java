@@ -3,6 +3,8 @@ package pdc;
 import pdc.config.AppConfig;
 import pdc.worker.WorkerClient;
 
+//Main entry point for a Worker node.
+
 public class AppWorker {
     public static void main(String[] args) {
         String workerId = args.length > 0 ? args[0] : "worker-" + System.currentTimeMillis();

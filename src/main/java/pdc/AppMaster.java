@@ -3,6 +3,7 @@ package pdc;
 import pdc.config.AppConfig;
 import pdc.master.MasterServer;
 
+// Main entry point for the Master node.
 public class AppMaster {
     public static void main(String[] args) {
         AppConfig config = AppConfig.load();
