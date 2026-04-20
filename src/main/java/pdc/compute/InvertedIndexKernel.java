@@ -13,12 +13,13 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 
 public class InvertedIndexKernel implements ComputeKernel {
+    // Creating an inverted index for a given list of lines
     @Override
     public TaskResult compute(String workerId,
-                              TaskDescriptor descriptor,
-                              List<String> lines,
-                              ExecutorService executorService,
-                              int threadCount) {
+            TaskDescriptor descriptor,
+            List<String> lines,
+            ExecutorService executorService,
+            int threadCount) {
         TaskResult result = new TaskResult();
         result.setTaskId(descriptor.getTaskId());
         result.setWorkerId(workerId);
@@ -65,7 +66,7 @@ public class InvertedIndexKernel implements ComputeKernel {
     }
 
     private void merge(Map<String, Map<String, List<Integer>>> target,
-                       Map<String, Map<String, List<Integer>>> source) {
+            Map<String, Map<String, List<Integer>>> source) {
         source.forEach((term, fileMap) -> {
             Map<String, List<Integer>> targetFileMap = target.computeIfAbsent(term, k -> new HashMap<>());
             fileMap.forEach((file, positions) -> {

@@ -13,6 +13,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 
 public class WordCountKernel implements ComputeKernel {
+    // Counting words in a given list of lines
     @Override
     public TaskResult compute(String workerId,
             TaskDescriptor descriptor,
