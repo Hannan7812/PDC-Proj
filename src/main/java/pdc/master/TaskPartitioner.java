@@ -12,13 +12,17 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import org.w3c.dom.css.Counter;
+
 public class TaskPartitioner {
+    // Scans a directory for text files and breaks them down into smaller tasks
 
     public List<TaskDescriptor> buildTasks(Path dataDir, int chunkLines, ComputeMode mode) {
         List<Path> files = listTextFiles(dataDir);
         AtomicInteger idCounter = new AtomicInteger();
         List<TaskDescriptor> tasks = new ArrayList<>();
 
+        // Get all the .txt files from the directory
         for (Path file : files) {
             int lineCount = safeLineCount(file);
             for (int start = 0; start < lineCount; start += chunkLines) {
@@ -31,6 +35,7 @@ public class TaskPartitioner {
     }
 
     private List<Path> listTextFiles(Path dataDir) {
+        // Counter to generate unique IDs for each task
         if (!Files.exists(dataDir)) {
             return List.of();
         }

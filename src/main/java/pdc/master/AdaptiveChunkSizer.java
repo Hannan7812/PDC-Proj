@@ -2,6 +2,7 @@ package pdc.master;
 
 import java.util.concurrent.atomic.AtomicInteger;
 
+//  Dynamically adjusts chunk size
 public class AdaptiveChunkSizer {
     private final int minChunk;
     private final int maxChunk;
@@ -14,7 +15,7 @@ public class AdaptiveChunkSizer {
     }
 
     public int current() {
-        return currentChunk.get();
+        return currentChunk.get(); // returns the chunk size to be used
     }
 
     public void observe(long taskDurationMs, long timeoutMs) {
