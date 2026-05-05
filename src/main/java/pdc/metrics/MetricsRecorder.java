@@ -47,9 +47,10 @@ public class MetricsRecorder {
                                    int workers,
                                    int threadsPerWorker,
                                    int totalTasks,
-                                   int completedTasks) {
-        String header = "run_type,compute_mode,success,duration_ms,workers,threads_per_worker,total_tasks,completed_tasks\n";
-        String row = String.format("%s,%s,%s,%d,%d,%d,%d,%d%n",
+                                   int completedTasks,
+                                   long serialPartMs) {
+        String header = "run_type,compute_mode,success,duration_ms,workers,threads_per_worker,total_tasks,completed_tasks,seq_part\n";
+        String row = String.format("%s,%s,%s,%d,%d,%d,%d,%d,%d%n",
                 runType,
                 computeMode,
                 success,
@@ -57,7 +58,8 @@ public class MetricsRecorder {
                 workers,
                 threadsPerWorker,
                 totalTasks,
-                completedTasks);
+                completedTasks,
+                serialPartMs);
         Path csv = metricsDir.resolve("run_metrics.csv");
         appendWithHeader(csv, header, row);
     }

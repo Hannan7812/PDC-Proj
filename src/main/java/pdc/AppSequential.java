@@ -33,7 +33,8 @@ public class AppSequential {
             1,
             1,
             taskCount,
-            taskCount
+            taskCount,
+            elapsed
         );
 
         long wordCountCardinality = result.wordCount().size();

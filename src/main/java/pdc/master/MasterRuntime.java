@@ -17,6 +17,7 @@ public class MasterRuntime {
     private final MetricsRecorder metricsRecorder;
     private final AtomicBoolean completionWritten;
     private volatile long runStartedAt;
+    private volatile long serialPartMs;
     private volatile ComputeMode computeMode;
 
     public MasterRuntime(AppConfig config) {
@@ -45,25 +46,30 @@ public class MasterRuntime {
         Path fallbackData = Path.of("data");
         Path dataPath = absoluteData.toFile().exists() ? absoluteData : fallbackData;
 
+        long serialStartedAt = System.currentTimeMillis();
         TaskPartitioner partitioner = new TaskPartitioner();
         List<TaskDescriptor> tasks = partitioner.buildTasks(dataPath, config.taskChunkLines(), computeMode);
         tasks.forEach(task -> {
             scheduler.addTask(task);
             dataService.registerTask(task);
         });
+        this.serialPartMs = Math.max(0L, System.currentTimeMillis() - serialStartedAt);
         System.out.println("Master initialized tasks: " + tasks.size() + " from " + dataPath.toAbsolutePath());
-        System.out.println("Time taken to initialize tasks: " + (System.currentTimeMillis() - runStartedAt) + " ms");
+        System.out.println("Time taken to initialize tasks: " + serialPartMs + " ms");
+        metricsRecorder.writeTimeline("parallel", "serial", serialPartMs);
 
         if (tasks.isEmpty()) {
+            long totalMs = System.currentTimeMillis() - runStartedAt;
             metricsRecorder.writeRunCompletion(
                     "parallel",
                     "BOTH",
                     true,
-                    0,
+                    totalMs,
                     0,
                     config.workerThreads(),
                     0,
-                    0
+                    0,
+                    serialPartMs
             );
             completionWritten.set(true);
         }
@@ -81,12 +87,13 @@ public class MasterRuntime {
         metricsRecorder.writeRunCompletion(
                 "parallel",
                 "BOTH",
-            success,
+                success,
                 elapsedMs,
                 workerCount,
                 config.workerThreads(),
-            totalTasks,
-            completedTasks
+                totalTasks,
+                completedTasks,
+                serialPartMs
         );
         System.out.println("Parallel mode=BOTH"
             + " success=" + success
