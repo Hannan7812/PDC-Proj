@@ -9,6 +9,7 @@ public final class Tokenizer {
     private Tokenizer() {
     }
 
+    // tokenizing the input lines
     public static List<String> tokens(String line) {
         if (line == null || line.isBlank()) {
             return List.of();

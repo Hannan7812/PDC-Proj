@@ -27,12 +27,12 @@ public class TaskScheduler {
     private final Map<String, WorkerAdaptiveState> workerAdaptiveState;
 
     public TaskScheduler(int maxRetries,
-                         long taskTimeoutMs,
-                         long maxRuntimeMs,
-                         int minBatchSize,
-                         int maxBatchSize,
-                         double overheadToComputeIncreaseThreshold,
-                         double computeToOverheadDecreaseThreshold) {
+            long taskTimeoutMs,
+            long maxRuntimeMs,
+            int minBatchSize,
+            int maxBatchSize,
+            double overheadToComputeIncreaseThreshold,
+            double computeToOverheadDecreaseThreshold) {
         this.maxRetries = maxRetries;
         this.taskTimeoutMs = taskTimeoutMs;
         this.maxRuntimeMs = maxRuntimeMs;
@@ -57,18 +57,16 @@ public class TaskScheduler {
 
     public synchronized Optional<TaskBatchAssignment> assignNextTask(String workerId) {
         if (isRuntimeExceeded()) {
-            return Optional.empty();
+            return Optional.empty(); // runtime exceeded
         }
         requeueTimedOutTasks();
         TaskState next = pendingQueue.poll();
         if (next == null) {
-            return Optional.empty();
+            return Optional.empty(); // no tasks pending
         }
 
-        WorkerAdaptiveState adaptive = workerAdaptiveState.computeIfAbsent(
-                workerId,
-                ignored -> new WorkerAdaptiveState(this.minBatchSize)
-        );
+        WorkerAdaptiveState adaptive = workerAdaptiveState.computeIfAbsent(workerId,
+                ignored -> new WorkerAdaptiveState(this.minBatchSize));
         int targetBatchSize = adaptive.batchSize;
 
         List<TaskDescriptor> assignments = new ArrayList<>();
@@ -124,8 +122,7 @@ public class TaskScheduler {
 
         WorkerAdaptiveState adaptive = workerAdaptiveState.computeIfAbsent(
                 workerId,
-                ignored -> new WorkerAdaptiveState(this.minBatchSize)
-        );
+                ignored -> new WorkerAdaptiveState(this.minBatchSize));
         adaptive.observe(computeMs, overheadMs);
 
         if (adaptive.overheadEwma > adaptive.computeEwma * overheadToComputeIncreaseThreshold) {
