@@ -27,9 +27,7 @@ public class MasterRuntime {
             config.taskTimeoutMs(),
             config.maxRuntimeMs(),
             config.schedulerMinBatchSize(),
-            config.schedulerMaxBatchSize(),
-            config.schedulerOverheadToComputeIncreaseThreshold(),
-            config.schedulerComputeToOverheadDecreaseThreshold()
+            config.schedulerMaxBatchSize()
         );
         this.dataService = new DataService();
         this.aggregator = new ResultAggregator();

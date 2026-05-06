@@ -21,8 +21,6 @@ public class TaskScheduler {
     private final long maxRuntimeMs;
     private final int minBatchSize;
     private final int maxBatchSize;
-    private final double overheadToComputeIncreaseThreshold;
-    private final double computeToOverheadDecreaseThreshold;
     private final long startedAt;
     private final Map<String, WorkerAdaptiveState> workerAdaptiveState;
 
@@ -30,16 +28,12 @@ public class TaskScheduler {
             long taskTimeoutMs,
             long maxRuntimeMs,
             int minBatchSize,
-            int maxBatchSize,
-            double overheadToComputeIncreaseThreshold,
-            double computeToOverheadDecreaseThreshold) {
+            int maxBatchSize) {
         this.maxRetries = maxRetries;
         this.taskTimeoutMs = taskTimeoutMs;
         this.maxRuntimeMs = maxRuntimeMs;
         this.minBatchSize = Math.max(1, minBatchSize);
         this.maxBatchSize = Math.max(this.minBatchSize, maxBatchSize);
-        this.overheadToComputeIncreaseThreshold = Math.max(1.0, overheadToComputeIncreaseThreshold);
-        this.computeToOverheadDecreaseThreshold = Math.max(1.0, computeToOverheadDecreaseThreshold);
         this.startedAt = System.currentTimeMillis();
         this.pendingQueue = new PriorityQueue<>(Comparator
                 .comparing((TaskState ts) -> ts.getDescriptor().getFilePath())
@@ -66,8 +60,8 @@ public class TaskScheduler {
         }
 
         WorkerAdaptiveState adaptive = workerAdaptiveState.computeIfAbsent(workerId,
-                ignored -> new WorkerAdaptiveState(this.minBatchSize));
-        int targetBatchSize = adaptive.batchSize;
+            ignored -> new WorkerAdaptiveState(this.minBatchSize, this.maxBatchSize));
+        int targetBatchSize = adaptive.currentBatchSize();
 
         List<TaskDescriptor> assignments = new ArrayList<>();
         markAssigned(next, workerId);
@@ -118,18 +112,12 @@ public class TaskScheduler {
         }
 
         long turnaroundMs = Math.max(0L, System.currentTimeMillis() - startedAt);
-        long overheadMs = Math.max(0L, turnaroundMs - Math.max(0L, computeMs));
+        long normalizedTaskDurationMs = Math.max(0L, turnaroundMs / Math.max(1, taskIds.size()));
 
         WorkerAdaptiveState adaptive = workerAdaptiveState.computeIfAbsent(
                 workerId,
-                ignored -> new WorkerAdaptiveState(this.minBatchSize));
-        adaptive.observe(computeMs, overheadMs);
-
-        if (adaptive.overheadEwma > adaptive.computeEwma * overheadToComputeIncreaseThreshold) {
-            adaptive.batchSize = Math.min(maxBatchSize, adaptive.batchSize * 2);
-        } else if (adaptive.computeEwma > adaptive.overheadEwma * computeToOverheadDecreaseThreshold) {
-            adaptive.batchSize = Math.max(minBatchSize, adaptive.batchSize - 1);
-        }
+            ignored -> new WorkerAdaptiveState(this.minBatchSize, this.maxBatchSize));
+        adaptive.observe(normalizedTaskDurationMs, taskTimeoutMs);
     }
 
     public synchronized int totalTasks() {
@@ -208,22 +196,18 @@ public class TaskScheduler {
     }
 
     private static class WorkerAdaptiveState {
-        private int batchSize;
-        private double computeEwma;
-        private double overheadEwma;
+        private final AdaptiveChunkSizer chunkSizer;
 
-        private WorkerAdaptiveState(int initialBatchSize) {
-            this.batchSize = initialBatchSize;
-            this.computeEwma = 0D;
-            this.overheadEwma = 0D;
+        private WorkerAdaptiveState(int minBatchSize, int maxBatchSize) {
+            this.chunkSizer = new AdaptiveChunkSizer(minBatchSize, minBatchSize, maxBatchSize);
         }
 
-        private void observe(long computeMs, long overheadMs) {
-            final double alpha = 0.2D;
-            double c = Math.max(0D, computeMs);
-            double o = Math.max(0D, overheadMs);
-            this.computeEwma = computeEwma == 0D ? c : ((1 - alpha) * computeEwma + alpha * c);
-            this.overheadEwma = overheadEwma == 0D ? o : ((1 - alpha) * overheadEwma + alpha * o);
+        private int currentBatchSize() {
+            return chunkSizer.current();
+        }
+
+        private void observe(long taskDurationMs, long timeoutMs) {
+            chunkSizer.observe(taskDurationMs, timeoutMs);
         }
     }
 }
